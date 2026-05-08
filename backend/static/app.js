@@ -1,126 +1,131 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   // Element References
-  const pdfInput = document.getElementById('pdf-input');
-  const uploadStatus = document.getElementById('upload-status');
-  const questionInput = document.getElementById('question');
-  const askBtn = document.getElementById('ask-btn');
-  const statusEl = document.getElementById('status');
-  const answerPanel = document.getElementById('answer');
-  const answerText = document.getElementById('answer-text');
-  const qtypePill = document.getElementById('qtype-pill');
-  const toolPill = document.getElementById('tool-pill');
-  const sourcesSection = document.getElementById('sources');
-  const sourcesList = document.getElementById('sources-list');
+  const pdfInput = document.getElementById("pdf-input");
+  const uploadStatus = document.getElementById("upload-status");
+  const questionEl = document.getElementById("question");
+  const askBtn = document.getElementById("ask-btn");
+  const statusEl = document.getElementById("status");
+  const answerEl = document.getElementById("answer");
+  const answerTextEl = document.getElementById("answer-text");
+  const qtypePill = document.getElementById("qtype-pill");
+  const toolPill = document.getElementById("tool-pill");
+  const sourcesEl = document.getElementById("sources");
+  const sourcesListEl = document.getElementById("sources-list");
 
-  // Constants
-  const QTYPE_BASE = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-medium';
+  const QTYPE_BASE = "px-3 py-1 rounded-full text-xs font-medium ";
   const QTYPE_COLORS = {
-    definition: 'bg-indigo-100 text-indigo-700',
-    example: 'bg-emerald-100 text-emerald-700',
-    comparison: 'bg-amber-100 text-amber-700',
+    definition: "bg-blue-100 text-blue-700",
+    example: "bg-green-100 text-green-700",
+    comparison: "bg-purple-100 text-purple-700",
   };
 
-  // Helper Function: resetAnswerUI
   function resetAnswerUI() {
-    answerPanel.hidden = true;
+    answerEl.hidden = true;
     qtypePill.hidden = true;
-    qtypePill.textContent = '';
-    qtypePill.className = QTYPE_BASE;
     toolPill.hidden = true;
-    toolPill.textContent = '';
-    sourcesSection.hidden = true;
-    sourcesList.innerHTML = '';
-    answerText.textContent = '';
+    sourcesEl.hidden = true;
+    
+    answerTextEl.textContent = "";
+    qtypePill.textContent = "";
+    toolPill.textContent = "";
+    
+    // Reset pill classes to base
+    qtypePill.className = QTYPE_BASE;
+    
+    sourcesListEl.textContent = "";
   }
 
-  // 1. File Input Behavior
-  pdfInput.addEventListener('change', () => {
+  // File Upload Handler
+  pdfInput.addEventListener("change", async () => {
     const file = pdfInput.files[0];
     if (!file) {
-      uploadStatus.textContent = '';
-      uploadStatus.className = 'text-sm text-gray-500 mt-2 min-h-[1.25rem]';
+      uploadStatus.textContent = "";
       return;
     }
-    uploadStatus.textContent = `Selected "${file.name}" (ready to upload)`;
-    uploadStatus.className = 'text-sm text-green-600 mt-2 min-h-[1.25rem]';
+
+    uploadStatus.textContent = `Uploading "${file.name}"...`;
+    
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Upload failed");
+      }
+
+      const data = await response.json();
+      uploadStatus.textContent = `Uploaded "${data.filename}" — ${data.size_bytes} bytes received.`;
+    } catch (error) {
+      uploadStatus.textContent = `Upload failed: ${error.message}`;
+    }
   });
 
-  // 3. Submit Button Behavior
-  askBtn.addEventListener('click', () => {
-    const question = questionInput.value.trim();
-
-    // Step 1: Validate Input
+  // Submit Button Handler
+  askBtn.addEventListener("click", async () => {
+    const question = questionEl.value.trim();
+    
     if (!question) {
-      statusEl.textContent = 'Please type a question first.';
-      statusEl.className = 'text-sm text-red-500 mt-2 min-h-[1.25rem]';
+      statusEl.textContent = "Please enter a question.";
+      statusEl.classList.add("text-red-500");
       resetAnswerUI();
       return;
     }
 
-    // Step 2: Loading State
+    statusEl.classList.remove("text-red-500");
+    statusEl.textContent = "Thinking...";
     resetAnswerUI();
-    statusEl.textContent = 'Thinking...';
-    statusEl.className = 'text-sm text-gray-500 mt-2 min-h-[1.25rem]';
 
-    // Step 3: Simulated Delay
-    setTimeout(() => {
-      const lowerQuestion = question.toLowerCase();
-
-      // Step 4: Determine Placeholder Question Type
-      let placeholderType = 'definition';
-      if (lowerQuestion.startsWith('what is')) {
-        placeholderType = 'definition';
-      } else if (lowerQuestion.startsWith('give') || lowerQuestion.includes('example')) {
-        placeholderType = 'example';
-      } else if (lowerQuestion.includes('vs') || lowerQuestion.includes('versus') || lowerQuestion.includes('compare') || lowerQuestion.includes('difference')) {
-        placeholderType = 'comparison';
-      }
-
-      // Step 5: Determine Placeholder Tool
-      let placeholderTool = 'search_notes';
-      // Regex for digits, spaces, and arithmetic symbols: 0-9, space, +, -, *, /, (, ), .
-      const calculatorRegex = /^[0-9\s\+\-\*\/\(\)\.]*$/;
-      if (calculatorRegex.test(question)) {
-        placeholderTool = 'calculator';
-      }
-
-      // Step 6: Build Placeholder Answer
-      const answerMsg = `Placeholder answer for: "${question}". Real answers will appear here once the backend is connected.`;
-
-      // Step 7: Populate UI
-      answerText.textContent = answerMsg;
-
-      qtypePill.hidden = false;
-      qtypePill.textContent = `type: ${placeholderType}`;
-      qtypePill.className = `${QTYPE_BASE} ${QTYPE_COLORS[placeholderType]}`;
-
-      toolPill.hidden = false;
-      toolPill.textContent = `tool: ${placeholderTool}`;
-
-      // Sources List
-      const sampleSources = [
-        'Sample source chunk 1 — example excerpt from the uploaded notes.',
-        'Sample source chunk 2 — another excerpt.',
-        'Sample source chunk 3 — final excerpt.',
-      ];
-
-      sampleSources.forEach(text => {
-        const li = document.createElement('li');
-        li.textContent = text;
-        sourcesList.appendChild(li);
+    try {
+      const response = await fetch("/ask", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ question }),
       });
 
-      // Calculator Path Rule
-      if (placeholderTool === 'calculator') {
-        sourcesSection.hidden = true;
-      } else {
-        sourcesSection.hidden = false;
+      if (!response.ok) {
+        throw new Error("Server error occurred");
       }
 
-      // Final Reveal
-      answerPanel.hidden = false;
-      statusEl.textContent = '';
-      statusEl.className = 'text-sm text-gray-500 mt-2 min-h-[1.25rem]';
-    }, 600);
+      const data = await response.json();
+      statusEl.textContent = "";
+
+      // Render Answer
+      answerTextEl.textContent = data.answer;
+      
+      // Render Question Type Pill
+      qtypePill.textContent = data.question_type;
+      qtypePill.className = QTYPE_BASE + (QTYPE_COLORS[data.question_type] || "bg-gray-100 text-gray-700");
+      qtypePill.hidden = false;
+
+      // Render Tool Pill
+      toolPill.textContent = data.tool_used;
+      toolPill.hidden = false;
+
+      // Render Sources
+      if (data.used_chunks && data.used_chunks.length > 0) {
+        sourcesListEl.textContent = "";
+        data.used_chunks.forEach((chunk) => {
+          const li = document.createElement("li");
+          li.textContent = chunk;
+          sourcesListEl.appendChild(li);
+        });
+        sourcesEl.hidden = false;
+      } else {
+        sourcesEl.hidden = true;
+      }
+
+      answerEl.hidden = false;
+    } catch (error) {
+      statusEl.textContent = `Error: ${error.message}`;
+      statusEl.classList.add("text-red-500");
+    }
   });
 });
