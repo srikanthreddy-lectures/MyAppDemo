@@ -3,32 +3,39 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from . import store, rag, llm
+from .pdf_utils import extract_text_from_pdf
+from .llm import GroqError
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 
-app = FastAPI(title="AskMyNotes", version="0.1.0")
+app = FastAPI(title="AskMyNotes", version="0.5.0")
 
-# Module-level state
-current_filename: str | None = None
+SYSTEM_PROMPT = """Answer ONLY from provided context.
+Do not hallucinate.
+Do not speculate.
+Combine related facts.
+Keep answers concise.
+If answer missing: "The notes don't cover that."
+"""
 
 # Pydantic Models
 class AskRequest(BaseModel):
     question: str
 
-class UploadResponse(BaseModel):
-    filename: str
-    size_bytes: int
-    received: bool
-
-class Pill(BaseModel):
-    label: str
-    value: str
-
 class AskResponse(BaseModel):
     answer: str
     tool_used: str
     question_type: str
-    used_chunks: list[str]
+    used_chunks: list[dict]  # List of {text, score}
+
+class UploadResponse(BaseModel):
+    filename: str
+    pages: int
+    chars: int
+    preview: str
+    chunks_indexed: int
 
 @app.get("/health")
 def health_check():
@@ -39,23 +46,33 @@ async def upload_file(file: UploadFile = File(...)):
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=415, detail="Please upload a PDF.")
     
-    data = await file.read()
-    size_bytes = len(data)
-    
-    global current_filename
-    current_filename = file.filename
-    
-    return UploadResponse(
-        filename=file.filename,
-        size_bytes=size_bytes,
-        received=True
-    )
+    try:
+        pdf_bytes = await file.read()
+        text, pages = extract_text_from_pdf(pdf_bytes)
+        
+        # Store in memory
+        store.set_document(file.filename, text)
+        
+        # Index chunks for RAG
+        rag.index_text(text)
+        
+        return UploadResponse(
+            filename=file.filename,
+            pages=pages,
+            chars=len(text),
+            preview=text[:200],
+            chunks_indexed=rag.count()
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
 
 @app.post("/ask", response_model=AskResponse)
 async def ask_question(request: AskRequest):
-    global current_filename
+    filename, text = store.get_document()
     
-    if current_filename is None:
+    if not text:
         return AskResponse(
             answer="No notes uploaded yet. Upload a PDF first.",
             tool_used="search_notes",
@@ -63,34 +80,27 @@ async def ask_question(request: AskRequest):
             used_chunks=[]
         )
     
-    question = request.question.lower()
-    
-    # Logic for tool_used
-    if any(char.isdigit() for char in question) or any(op in question for op in ['+', '-', '*', '/', '=']):
-        tool_used = "calculator"
-        used_chunks = []
-    else:
-        tool_used = "search_notes"
-        used_chunks = [
-            f"Chunk 1 from {current_filename}",
-            f"Chunk 2 from {current_filename}",
-            f"Chunk 3 from {current_filename}"
-        ]
-    
-    # Logic for question_type
-    if "compare" in question:
-        question_type = "comparison"
-    elif "example" in question:
-        question_type = "example"
-    else:
-        question_type = "definition"
+    try:
+        # 1. Retrieve top-3 chunks
+        chunks = rag.search(request.question, k=3)
         
-    return AskResponse(
-        answer=f"Stub answer for: {request.question}",
-        tool_used=tool_used,
-        question_type=question_type,
-        used_chunks=used_chunks
-    )
+        # 2. Build context prompt
+        context = "\n\n".join([c["text"] for c in chunks])
+        prompt = f"Context:\n{context}\n\nQuestion: {request.question}"
+        
+        # 3. Call LLM
+        answer = await llm.generate(prompt, system_prompt=SYSTEM_PROMPT)
+        
+        return AskResponse(
+            answer=answer,
+            tool_used="search_notes",
+            question_type="definition",
+            used_chunks=chunks
+        )
+    except GroqError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
 
-# Mount static files AFTER all endpoints
+# Mount StaticFiles LAST
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

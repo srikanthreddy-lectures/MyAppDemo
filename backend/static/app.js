@@ -60,7 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const data = await response.json();
-      uploadStatus.textContent = `Uploaded "${data.filename}" — ${data.size_bytes} bytes received.`;
+      uploadStatus.textContent = `Loaded "${data.filename}" — ${data.pages} pages, ${data.chars} characters, ${data.chunks_indexed} chunks indexed.`;
     } catch (error) {
       uploadStatus.textContent = `Upload failed: ${error.message}`;
     }
@@ -114,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
         sourcesListEl.textContent = "";
         data.used_chunks.forEach((chunk) => {
           const li = document.createElement("li");
-          li.textContent = chunk;
+          li.textContent = typeof chunk === 'string' ? chunk : chunk.text;
           sourcesListEl.appendChild(li);
         });
         sourcesEl.hidden = false;
