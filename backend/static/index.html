@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AskMyNotes</title>
+</head>
+<body>
+
+  <header>
+    <h1>AskMyNotes</h1>
+    <p>
+      Upload a PDF. Ask a question. Get a grounded answer.
+    </p>
+  </header>
+
+  <main>
+    <section>
+      <label for="pdf-input">
+        Upload your notes (PDF)
+      </label>
+      <input
+        type="file"
+        id="pdf-input"
+        accept="application/pdf"
+      >
+      <p id="upload-status"></p>
+    </section>
+
+    <section>
+      <label for="question">
+        Your question
+      </label>
+      <textarea
+        id="question"
+        rows="3"
+        placeholder="Type your question here..."
+      ></textarea>
+      <button id="ask-btn" type="button">
+        Submit
+      </button>
+      <p id="status"></p>
+    </section>
+
+    <section>
+      <div id="answer" hidden>
+        <h2>Answer</h2>
+        <p id="qtype-pill" hidden></p>
+        <p id="tool-pill" hidden></p>
+        <p id="answer-text"></p>
+        <details id="sources" hidden>
+          <summary>Sources</summary>
+          <ul id="sources-list"></ul>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Built in the AI Engineering Bootcamp.
+    </p>
+  </footer>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
