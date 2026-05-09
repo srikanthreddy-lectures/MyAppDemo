@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // Render Question Type Pill
       qtypePill.textContent = data.question_type;
-      qtypePill.className = QTYPE_BASE + (QTYPE_COLORS[data.question_type] || "bg-gray-100 text-gray-700");
+      qtypePill.className = QTYPE_BASE + (QTYPE_COLORS[data.question_type] || QTYPE_COLORS.definition);
       qtypePill.hidden = false;
 
       // Render Tool Pill

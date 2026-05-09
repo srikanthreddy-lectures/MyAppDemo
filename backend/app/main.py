@@ -3,14 +3,14 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import store, rag, llm
+from . import store, rag, llm, classifier
 from .pdf_utils import extract_text_from_pdf
 from .llm import GroqError
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 
-app = FastAPI(title="AskMyNotes", version="0.5.0")
+app = FastAPI(title="AskMyNotes", version="0.6.0")
 
 SYSTEM_PROMPT = """Answer ONLY from provided context.
 Do not hallucinate.
@@ -70,13 +70,17 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.post("/ask", response_model=AskResponse)
 async def ask_question(request: AskRequest):
+    # STEP 1 — CLASSIFY FIRST
+    question_type = classifier.classify(request.question)
+    
+
     filename, text = store.get_document()
     
     if not text:
         return AskResponse(
             answer="No notes uploaded yet. Upload a PDF first.",
             tool_used="search_notes",
-            question_type="definition",
+            question_type=question_type,
             used_chunks=[]
         )
     
@@ -94,7 +98,7 @@ async def ask_question(request: AskRequest):
         return AskResponse(
             answer=answer,
             tool_used="search_notes",
-            question_type="definition",
+            question_type=question_type,
             used_chunks=chunks
         )
     except GroqError as e:
