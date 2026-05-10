@@ -98,7 +98,42 @@ document.addEventListener("DOMContentLoaded", () => {
       statusEl.textContent = "";
 
       // Render Answer
-      answerTextEl.textContent = data.answer;
+      if (data.tool_used === 'draw_diagram') {
+        answerTextEl.textContent = ''; // Clear text
+        
+        // Remove any previous diagrams
+        const prevDiagram = answerEl.querySelector('.mermaid');
+        if (prevDiagram) prevDiagram.remove();
+        
+        // Create Mermaid container
+        const mermaidDiv = document.createElement('div');
+        mermaidDiv.className = 'mermaid bg-white p-4 rounded border border-gray-200 mt-2 overflow-auto';
+        
+        // Use a unique ID for mermaid rendering
+        const diagramId = 'mermaid-' + Date.now();
+        mermaidDiv.id = diagramId;
+        mermaidDiv.textContent = data.answer;
+        
+        answerTextEl.after(mermaidDiv);
+        
+        // Render diagram
+        try {
+          // In newer versions of Mermaid, mermaid.run() is used.
+          // If that's not working, we try mermaid.render as a fallback.
+          await mermaid.run({
+            nodes: [mermaidDiv],
+          });
+        } catch (e) {
+          console.error('Mermaid render error:', e);
+          answerTextEl.textContent = 'Error rendering diagram: ' + e.message;
+        }
+      } else {
+        // Regular text answer
+        const prevDiagram = answerEl.querySelector('.mermaid');
+        if (prevDiagram) prevDiagram.remove();
+        
+        answerTextEl.textContent = data.answer;
+      }
       
       // Render Question Type Pill
       qtypePill.textContent = data.question_type;

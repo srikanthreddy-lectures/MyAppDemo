@@ -10,9 +10,10 @@ def clear():
     current_filename = None
     current_text = None
     
-    # Import rag inside function to avoid circular imports
-    from . import rag
+    # Import rag and cache inside function to avoid circular imports
+    from . import rag, cache
     rag.clear()
+    cache.clear_cache()
 
 def set_document(filename: str, text: str):
     """
