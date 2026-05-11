@@ -1,6 +1,7 @@
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import traceback
 
@@ -12,6 +13,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 
 app = FastAPI(title="AskMyNotes", version="0.7.0")
+
+# Enable CORS to allow Hugging Face's iframe and proxy to interact with the API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for deployment flexibility
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Pydantic Models
 class AskRequest(BaseModel):
