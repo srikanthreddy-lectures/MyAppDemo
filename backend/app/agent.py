@@ -35,8 +35,17 @@ def is_arithmetic(question: str) -> bool:
         return False
     
     # Exclude common natural language starters to avoid routing "What is 2+2" to calculator
-    forbidden_starters = ("what", "how", "why", "can", "could", "please", "calculate", "find")
+    forbidden_starters = ("what", "how", "why", "can", "could", "please", "calculate", "find", "summarize", "summarise")
     if q.startswith(forbidden_starters):
+        return False
+        
+    # MUST contain at least one mathematical indicator (digit, operator, or number word)
+    # to avoid routing general sentences to the calculator.
+    has_digit = any(char.isdigit() for char in q)
+    has_operator = any(char in q for char in "+-*/^")
+    has_number_word = any(word in q.split() for word in NUMBER_MAP)
+    
+    if not (has_digit or has_operator or has_number_word):
         return False
         
     return True
